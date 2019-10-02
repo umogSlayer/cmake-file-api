@@ -1,0 +1,77 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.32.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 1bfc31df63a95cc146b2e4388c4b455187b4392c87bf8d5d84c77635eb689ec8
+
+name:           cmake-file-api
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/cmake-file-api#readme>
+homepage:       https://github.com/githubuser/cmake-file-api#readme
+bug-reports:    https://github.com/githubuser/cmake-file-api/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2019 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/cmake-file-api
+
+library
+  exposed-modules:
+      Data.CMakeFileApi
+  other-modules:
+      Paths_cmake_file_api
+  hs-source-dirs:
+      src
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , containers
+    , text
+    , utf8-string
+  default-language: Haskell2010
+
+executable cmake-file-api-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_cmake_file_api
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , cmake-file-api
+    , containers
+    , text
+    , utf8-string
+  default-language: Haskell2010
+
+test-suite cmake-file-api-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_cmake_file_api
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , cmake-file-api
+    , containers
+    , text
+    , utf8-string
+  default-language: Haskell2010
