@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 
-module Data.CMakeFileApi (
+module Data.CMakeFileApi.IndexFile (
     GeneratorDescription,
     CMakePaths,
     CMakeVersion,
@@ -123,16 +123,6 @@ instance ToJSON ClientStatelessReplyValue where
                         ClientStatefulResponse v -> toEncoding v
                         CSError v -> toEncoding v
 
-parseSelectValuePair :: (Value -> Parser a) -> (Value -> Parser a) -> Value -> Parser a
-parseSelectValuePair x y v = case parse x v of
-                                  Success z -> return z
-                                  Error str -> prependFailure str $ y v
-
-parseSelectValue :: [Value -> Parser a] -> Value -> Parser a
-parseSelectValue (x:y:xs) = foldl parseSelectValuePair (parseSelectValuePair x y) xs
-parseSelectValue [x] = x
-parseSelectValue _ = fail "No types specified"
-
 instance FromJSON ClientStatelessReplyValue where
     parseJSON = parseSelectValue [parseClientStatelessResponseJSON,
                                   parseClientStatefulResponseJSON,
@@ -182,3 +172,13 @@ instance FromJSON IndexFile where
         <$> v .: "cmake"
         <*> v .: "objects"
         <*> v .: "reply"
+
+parseSelectValuePair :: (Value -> Parser a) -> (Value -> Parser a) -> Value -> Parser a
+parseSelectValuePair x y v = case parse x v of
+                                  Success z -> return z
+                                  Error str -> prependFailure str $ y v
+
+parseSelectValue :: [Value -> Parser a] -> Value -> Parser a
+parseSelectValue (x:y:xs) = foldl parseSelectValuePair (parseSelectValuePair x y) xs
+parseSelectValue [x] = x
+parseSelectValue _ = fail "No types specified"

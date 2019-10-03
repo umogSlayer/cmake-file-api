@@ -18,6 +18,6 @@ mkDerivation {
     aeson base bytestring containers text utf8-string
   ];
   prePatch = "hpack";
-  homepage = "https://github.com/githubuser/cmake-file-api#readme";
+  homepage = "https://github.com/umogSlayer/cmake-file-api#readme";
   license = stdenv.lib.licenses.bsd3;
 }

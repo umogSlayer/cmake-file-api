@@ -1,6 +1,6 @@
 module Main where
 
-import Data.CMakeFileApi
+import Data.CMakeFileApi.IndexFile
 
 main :: IO ()
-main = someFunc
+main = putStrLn "Hello, world!"

@@ -4,16 +4,16 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 1bfc31df63a95cc146b2e4388c4b455187b4392c87bf8d5d84c77635eb689ec8
+-- hash: 9f36243fe100380689ce1d9929b1d19ce4939e58449a7d2969ddc9e2ffe2e03a
 
 name:           cmake-file-api
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/cmake-file-api#readme>
-homepage:       https://github.com/githubuser/cmake-file-api#readme
-bug-reports:    https://github.com/githubuser/cmake-file-api/issues
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2019 Author name here
+description:    Please see the README on GitHub at <https://github.com/umogSlayer/cmake-file-api#readme>
+homepage:       https://github.com/umogSlayer/cmake-file-api#readme
+bug-reports:    https://github.com/umogSlayer/cmake-file-api/issues
+author:         Vladimir Bayrashevskiy
+maintainer:     vovanhood@gmail.com
+copyright:      2019 Vladimir Bayrashevskiy
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
@@ -23,11 +23,12 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/cmake-file-api
+  location: https://github.com/umogSlayer/cmake-file-api
 
 library
   exposed-modules:
       Data.CMakeFileApi
+      Data.CMakeFileApi.IndexFile
   other-modules:
       Paths_cmake_file_api
   hs-source-dirs:
@@ -37,6 +38,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , containers
+    , directory
     , text
     , utf8-string
   default-language: Haskell2010
@@ -54,6 +56,7 @@ executable cmake-file-api-exe
     , bytestring
     , cmake-file-api
     , containers
+    , directory
     , text
     , utf8-string
   default-language: Haskell2010
@@ -72,6 +75,7 @@ test-suite cmake-file-api-test
     , bytestring
     , cmake-file-api
     , containers
+    , directory
     , text
     , utf8-string
   default-language: Haskell2010
