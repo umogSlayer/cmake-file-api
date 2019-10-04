@@ -1,6 +1,7 @@
 module Main where
 
-import Data.CMakeFileApi.IndexFile
+import Data.CMakeFileApi
 
 main :: IO ()
-main = putStrLn "Hello, world!"
+main = do parsedResult <- findAndParseIndexFile "/home/umogslayer/source/autocomplete/ias64d-gcc/.cmake/api/v1/reply"
+          print parsedResult

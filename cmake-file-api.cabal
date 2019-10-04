@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9f36243fe100380689ce1d9929b1d19ce4939e58449a7d2969ddc9e2ffe2e03a
+-- hash: 906f337a6b6fa2c97952009f26aef73b770a53dce3e4e61cee3bc9d87d1bd209
 
 name:           cmake-file-api
 version:        0.1.0.0
@@ -29,6 +29,7 @@ library
   exposed-modules:
       Data.CMakeFileApi
       Data.CMakeFileApi.IndexFile
+      Data.CMakeFileApi.Types
   other-modules:
       Paths_cmake_file_api
   hs-source-dirs:
