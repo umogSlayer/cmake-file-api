@@ -1,8 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Data.CMakeFileApi (
-    ParseResult,
-    findAndParseIndexFile
+    findAndParseIndexFile,
+    parseIndexFileContents,
+    parseIndexFile
 ) where
 
 import qualified Data.Aeson as Aeson
@@ -47,4 +48,4 @@ findAndParseIndexFile folder =
            let indexFiles = getIndexFiles directoryContents in
                    if null indexFiles
                        then return InvalidDirectory
-                       else parseIndexFile (Text.unpack . maximum $ indexFiles)
+                       else parseIndexFile (folder ++ "/" ++ (Text.unpack . maximum $ indexFiles))

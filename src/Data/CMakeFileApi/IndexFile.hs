@@ -2,13 +2,13 @@
 {-# LANGUAGE DeriveGeneric #-}
 
 module Data.CMakeFileApi.IndexFile (
-    GeneratorDescription,
-    CMakePaths,
-    CMakeVersion,
-    CMakeDescription,
-    KindVersion,
-    ReplyFileReference,
-    IndexFile
+    GeneratorDescription(..),
+    CMakePaths(..),
+    CMakeVersion(..),
+    CMakeDescription(..),
+    KindVersion(..),
+    ReplyFileReference(..),
+    IndexFile(..)
 ) where
 
 import Data.Text (Text)
@@ -108,12 +108,29 @@ instance ToJSON ReplyError where
 
 type ReplyKey = Text
 
-data ClientStatelessReplyValue = ClientStatelessResponse Object
-                               | ClientStatefulResponse Object
-                               | CSError ReplyError
-                               deriving Show
+data StatefulResponseValue = StatefulResponseValue {
+} deriving (Show, Generic)
 
-instance ToJSON ClientStatelessReplyValue where
+instance FromJSON StatefulResponseValue
+instance ToJSON StatefulResponseValue where
+    toEncoding = genericToEncoding defaultOptions
+
+data StatefulResponse = StatefulResponse {
+    client :: Maybe Object,
+    requests :: [Object],
+    responses :: [Object]
+} deriving (Show, Generic)
+
+instance FromJSON StatefulResponse
+instance ToJSON StatefulResponse where
+    toEncoding = genericToEncoding defaultOptions
+
+data ClientReplyValue = ClientStatelessResponse ReplyFileReference
+                      | ClientStatefulResponse StatefulResponse
+                      | CSError ReplyError
+                      deriving Show
+
+instance ToJSON ClientReplyValue where
     toJSON x = case x of
                     ClientStatelessResponse v -> toJSON v
                     ClientStatefulResponse v -> toJSON v
@@ -123,35 +140,35 @@ instance ToJSON ClientStatelessReplyValue where
                         ClientStatefulResponse v -> toEncoding v
                         CSError v -> toEncoding v
 
-instance FromJSON ClientStatelessReplyValue where
-    parseJSON = parseSelectValue [parseClientStatelessResponseJSON,
-                                  parseClientStatefulResponseJSON,
-                                  parseCSErrorJSON]
+instance FromJSON ClientReplyValue where
+    parseJSON = parseSelectValue [parseCSErrorJSON,
+                                  parseClientStatelessResponseJSON,
+                                  parseClientStatefulResponseJSON]
                 where parseClientStatelessResponseJSON x = ClientStatelessResponse <$> parseJSON x
                       parseClientStatefulResponseJSON x = ClientStatefulResponse <$> parseJSON x
                       parseCSErrorJSON x = CSError <$> parseJSON x
 
 data ReplyValue = SharedStatelessResponseValue ReplyFileReference
-                | ClientStatelessResponseValue ClientStatelessReplyValue
+                | ClientResponseValue (DMap.Map ReplyKey ClientReplyValue)
                 | ErrorValue ReplyError
                 deriving Show
 
 instance ToJSON ReplyValue where
     toJSON x = case x of
                     SharedStatelessResponseValue v -> toJSON v
-                    ClientStatelessResponseValue v -> toJSON v
+                    ClientResponseValue v -> toJSON v
                     ErrorValue v -> toJSON v
     toEncoding x = case x of
                         SharedStatelessResponseValue v -> toEncoding v
-                        ClientStatelessResponseValue v -> toEncoding v
+                        ClientResponseValue v -> toEncoding v
                         ErrorValue v -> toEncoding v
 
 instance FromJSON ReplyValue where
-    parseJSON = parseSelectValue [parseSharedStatelessResponseValueJSON,
-                                  parseClientStatelessResponseValueJSON,
-                                  parseErrorValueJSON]
+    parseJSON = parseSelectValue [parseErrorValueJSON,
+                                  parseSharedStatelessResponseValueJSON,
+                                  parseClientStatelessResponseValueJSON]
                 where parseSharedStatelessResponseValueJSON x = SharedStatelessResponseValue <$> parseJSON x
-                      parseClientStatelessResponseValueJSON x = ClientStatelessResponseValue <$> parseJSON x
+                      parseClientStatelessResponseValueJSON x = ClientResponseValue <$> parseJSON x
                       parseErrorValueJSON x = ErrorValue <$> parseJSON x
 
 data IndexFile = IndexFile {
@@ -176,7 +193,7 @@ instance FromJSON IndexFile where
 parseSelectValuePair :: (Value -> Parser a) -> (Value -> Parser a) -> Value -> Parser a
 parseSelectValuePair x y v = case parse x v of
                                   Success z -> return z
-                                  Error str -> prependFailure str $ y v
+                                  Error str -> prependFailure ("[" ++ str ++ "]" ++ " -> ") $ y v
 
 parseSelectValue :: [Value -> Parser a] -> Value -> Parser a
 parseSelectValue (x:y:xs) = foldl parseSelectValuePair (parseSelectValuePair x y) xs

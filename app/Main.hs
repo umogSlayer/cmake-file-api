@@ -1,7 +1,9 @@
 module Main where
 
 import Data.CMakeFileApi
+import System.Environment
 
 main :: IO ()
-main = do parsedResult <- findAndParseIndexFile "/home/umogslayer/source/autocomplete/ias64d-gcc/.cmake/api/v1/reply"
+main = do args <- getArgs
+          parsedResult <- findAndParseIndexFile (head args)
           print parsedResult
