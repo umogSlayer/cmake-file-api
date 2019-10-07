@@ -32,7 +32,7 @@ parseIndexFile :: FilePath -> IO (ParseResult IndexFile)
 parseIndexFile indexFile =
     do indexFileContents <- tryJust (guard . isDoesNotExistError) (BSL.readFile indexFile)
        case indexFileContents of
-            Left _ -> return Retry
+            Left err -> return $ Retry $ "File " ++ indexFile ++ " does not exist"
             Right contents -> return $ parseIndexFileContents contents
 
 findAndParseIndexFile :: FilePath -> IO (ParseResult IndexFile)
@@ -47,5 +47,5 @@ findAndParseIndexFile folder =
         do directoryContents <- listDirectory folder
            let indexFiles = getIndexFiles directoryContents in
                    if null indexFiles
-                       then return InvalidDirectory
+                       then return $ InvalidDirectory ("No index file inside " ++ folder)
                        else parseIndexFile (folder ++ "/" ++ (Text.unpack . maximum $ indexFiles))

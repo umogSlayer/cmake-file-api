@@ -2,13 +2,18 @@
 {-# LANGUAGE DeriveGeneric #-}
 
 module Data.CMakeFileApi.IndexFile (
-    GeneratorDescription(..),
+    CMakeDescription(..),
     CMakePaths(..),
     CMakeVersion(..),
-    CMakeDescription(..),
+    ClientReplyValue(..),
+    GeneratorDescription(..),
+    IndexFile(..),
     KindVersion(..),
+    ReplyError(..),
     ReplyFileReference(..),
-    IndexFile(..)
+    ReplyValue(..),
+    StatefulResponse(..),
+    StatefulResponseValue(..)
 ) where
 
 import Data.Text (Text)
@@ -16,8 +21,6 @@ import qualified Data.Map.Strict as DMap
 import GHC.Generics (Generic)
 import Data.Aeson
 import Data.Aeson.Types (Parser, parse, prependFailure)
-import qualified Data.Aeson.Types as DAT (Result)
-import Control.Monad
 
 data GeneratorDescription = GeneratorDescription {
     name :: Text,
@@ -108,17 +111,29 @@ instance ToJSON ReplyError where
 
 type ReplyKey = Text
 
-data StatefulResponseValue = StatefulResponseValue {
-} deriving (Show, Generic)
+data StatefulResponseValue = StatefulFileReference ReplyFileReference
+                           | StatefulErrorValue ReplyError
+                           deriving Show
 
-instance FromJSON StatefulResponseValue
 instance ToJSON StatefulResponseValue where
-    toEncoding = genericToEncoding defaultOptions
+    toJSON x = case x of
+                    StatefulFileReference v -> toJSON v
+                    StatefulErrorValue v -> toJSON v
+    toEncoding x = case x of
+                        StatefulFileReference v -> toEncoding v
+                        StatefulErrorValue v -> toEncoding v
+
+
+instance FromJSON StatefulResponseValue where
+    parseJSON = parseSelectValue [parseStatefulErrorValueJSON,
+                                  parseStatefulFileReferenceJSON]
+                where parseStatefulFileReferenceJSON x = StatefulFileReference <$> parseJSON x
+                      parseStatefulErrorValueJSON x = StatefulErrorValue <$> parseJSON x
 
 data StatefulResponse = StatefulResponse {
     client :: Maybe Object,
     requests :: [Object],
-    responses :: [Object]
+    responses :: [StatefulResponseValue]
 } deriving (Show, Generic)
 
 instance FromJSON StatefulResponse
@@ -127,26 +142,26 @@ instance ToJSON StatefulResponse where
 
 data ClientReplyValue = ClientStatelessResponse ReplyFileReference
                       | ClientStatefulResponse StatefulResponse
-                      | CSError ReplyError
+                      | ClientErrorValue ReplyError
                       deriving Show
 
 instance ToJSON ClientReplyValue where
     toJSON x = case x of
                     ClientStatelessResponse v -> toJSON v
                     ClientStatefulResponse v -> toJSON v
-                    CSError v -> toJSON v
+                    ClientErrorValue v -> toJSON v
     toEncoding x = case x of
                         ClientStatelessResponse v -> toEncoding v
                         ClientStatefulResponse v -> toEncoding v
-                        CSError v -> toEncoding v
+                        ClientErrorValue v -> toEncoding v
 
 instance FromJSON ClientReplyValue where
-    parseJSON = parseSelectValue [parseCSErrorJSON,
+    parseJSON = parseSelectValue [parseClientErrorValueJSON,
                                   parseClientStatelessResponseJSON,
                                   parseClientStatefulResponseJSON]
                 where parseClientStatelessResponseJSON x = ClientStatelessResponse <$> parseJSON x
                       parseClientStatefulResponseJSON x = ClientStatefulResponse <$> parseJSON x
-                      parseCSErrorJSON x = CSError <$> parseJSON x
+                      parseClientErrorValueJSON x = ClientErrorValue <$> parseJSON x
 
 data ReplyValue = SharedStatelessResponseValue ReplyFileReference
                 | ClientResponseValue (DMap.Map ReplyKey ClientReplyValue)
