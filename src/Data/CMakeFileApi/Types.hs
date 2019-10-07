@@ -20,12 +20,11 @@ instance Functor ParseResult where
 
 instance Applicative ParseResult where
     pure = Success
-    (<*>) (Success transform) (Success value)        = Success (transform value)
-    (<*>) (Success transform) (ExternalError err)    = ExternalError err
-    (<*>) (Success transform) (ParseError err)       = ParseError err
-    (<*>) (Success transform) (Retry str)            = Retry str
-    (<*>) (Success transform) (InvalidDirectory str) = InvalidDirectory str
-    (<*>) _ _ = error "Unsupported operation"
+    (<*>) (Success transform) (Success value) = Success (transform value)
+    (<*>) (ExternalError err) _               = ExternalError err
+    (<*>) (ParseError err) _                  = ParseError err
+    (<*>) (Retry str) _                       = Retry str
+    (<*>) (InvalidDirectory str) _            = InvalidDirectory str
 
 instance Monad ParseResult where
     return = pure

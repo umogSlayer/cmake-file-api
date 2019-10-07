@@ -2,6 +2,10 @@
 {-# LANGUAGE DeriveGeneric #-}
 
 module Data.CMakeFileApi.CodeModel (
+    CodeModel(..),
+    Configuration(..),
+    Paths(..),
+    Target(..)
 ) where
 
 import Data.Text (Text)
@@ -33,11 +37,13 @@ instance ToJSON Target where
                <> "projectIndex" .= projectIndex target
                <> "jsonFile" .= jsonFile target)
 
---instance FromJSON Target where
-    --parseJSON = withObject "Target" $ \v -> Target
-        -- <$> v .: "kind"
-        -- <*> v .: "version"
-        -- <*> v .: "jsonFile"
+instance FromJSON Target where
+    parseJSON = withObject "Target" $ \v -> Target
+        <$> v .: "name"
+        <*> v .: "id"
+        <*> v .: "directoryIndex"
+        <*> v .: "projectIndex"
+        <*> v .: "jsonFile"
 
 data Configuration = Configuration {
     name :: Text,
@@ -46,15 +52,27 @@ data Configuration = Configuration {
     targets :: [Target]
 } deriving (Show, Generic)
 
+instance FromJSON Configuration
+instance ToJSON Configuration where
+    toEncoding = genericToEncoding defaultOptions
+
 data Paths = Paths {
     source :: Text,
     build :: Text
 } deriving (Show, Generic)
 
+instance FromJSON Paths
+instance ToJSON Paths where
+    toEncoding = genericToEncoding defaultOptions
+
 data CodeModel = CodeModel {
     paths :: Paths,
     configurations :: [Configuration]
 } deriving (Show, Generic)
+
+instance FromJSON CodeModel
+instance ToJSON CodeModel where
+    toEncoding = genericToEncoding defaultOptions
 
 parseSelectValuePair :: (Value -> Parser a) -> (Value -> Parser a) -> Value -> Parser a
 parseSelectValuePair x y v = case parse x v of
