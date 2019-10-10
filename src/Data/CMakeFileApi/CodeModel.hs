@@ -12,11 +12,10 @@ import Data.Text (Text)
 import qualified Data.Map.Strict as DMap
 import GHC.Generics (Generic)
 import Data.Aeson
-import Data.Aeson.Types (Parser, parse, prependFailure)
 
 data Target = Target {
     targetName :: Text,
-    targetId :: Int,
+    targetId :: Text,
     directoryIndex :: Int,
     projectIndex :: Int,
     jsonFile :: Text
@@ -73,14 +72,3 @@ data CodeModel = CodeModel {
 instance FromJSON CodeModel
 instance ToJSON CodeModel where
     toEncoding = genericToEncoding defaultOptions
-
-parseSelectValuePair :: (Value -> Parser a) -> (Value -> Parser a) -> Value -> Parser a
-parseSelectValuePair x y v = case parse x v of
-                                  Success z -> return z
-                                  Error str -> prependFailure ("[" ++ str ++ "]" ++ " -> ") $ y v
-
-parseSelectValue :: [Value -> Parser a] -> Value -> Parser a
-parseSelectValue (x:y:xs) = foldl parseSelectValuePair (parseSelectValuePair x y) xs
-parseSelectValue [x] = x
-parseSelectValue _ = fail "No types specified"
-

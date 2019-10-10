@@ -1,9 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Data.CMakeFileApi (
-    findAndParseIndexFile,
-    parseFileContents,
-    parseFile
+    analyzeCMakeOutput
 ) where
 
 import qualified Data.Aeson as Aeson
@@ -13,9 +11,14 @@ import qualified Data.Map.Strict as DMap
 import System.Directory (listDirectory)
 
 import Data.CMakeFileApi.IndexFile
-import Data.CMakeFileApi.Types
+import qualified Data.CMakeFileApi.IndexFile as IndexFile
 import Data.CMakeFileApi.CodeModel
+import qualified Data.CMakeFileApi.CodeModel as CodeModel
+import Data.CMakeFileApi.CodeModelTarget
+import qualified Data.CMakeFileApi.CodeModelTarget as CodeModelTarget
+import Data.CMakeFileApi.Types
 
+import Control.Applicative ((<|>))
 import Control.Exception
 import Control.Monad
 
@@ -79,6 +82,40 @@ findHcmakeStatefulCodeModel indexFile =
                [replyFileReference] -> return replyFileReference
                _ -> Nothing
 
+parseCodeModel :: FilePath -> IndexFile -> IO (ParseResult CodeModel)
+parseCodeModel folder indexFile =
+    let sharedCodeModel = findSharedCodeModel indexFile
+        clientStatelessCodeModel = findHcmakeStatelessCodeModel indexFile
+        clientStatefulCodeModel = findHcmakeStatefulCodeModel indexFile
+        selectedCodeModelMaybe = clientStatefulCodeModel <|> clientStatelessCodeModel <|> sharedCodeModel
+        parseCodeModelFile :: ReplyFileReference -> IO (ParseResult CodeModel)
+        parseCodeModelFile = parseFile . (\v -> folder ++ "/" ++ v) . Text.unpack . IndexFile.jsonFile
+    in case selectedCodeModelMaybe of
+            Just replyFileRef -> parseCodeModelFile replyFileRef
+            Nothing -> return $ Retry "Reference file not found"
 
---parseCodeModel :: IndexFile -> IO (ParseResult CodeModel)
---parseCodeModel indexFile = 
+type ConfigurationWithTargets = (Configuration, [CodeModelTarget])
+
+parseTargets :: FilePath -> CodeModel -> IO (ParseResult [ConfigurationWithTargets])
+parseTargets folder codeModel =
+    let configurationsList :: [(Configuration, [CodeModel.Target])]
+        configurationsList = [(configuration, targets configuration)
+                          | configuration <- configurations codeModel]
+        parseTargetFile :: CodeModel.Target -> IO (ParseResult CodeModelTarget)
+        parseTargetFile = parseFile . (\v -> folder ++ "/" ++ v) . Text.unpack . CodeModel.jsonFile
+        parseFileSequence :: [CodeModel.Target] -> IO [ParseResult CodeModelTarget]
+        parseFileSequence = traverse parseTargetFile
+        parseConfiguration :: (Configuration, [CodeModel.Target]) -> IO (ParseResult (Configuration, [CodeModelTarget]))
+        parseConfiguration (config, targets) = do codeModelTargets <- parseFileSequence targets
+                                                  return $ (\vm -> do v <- vm; return (config, v)) $ sequence codeModelTargets
+        sequencedConfigurationsIO :: IO [ParseResult ConfigurationWithTargets]
+        sequencedConfigurationsIO = sequence [parseConfiguration configuration | configuration <- configurationsList]
+    in sequence <$> sequencedConfigurationsIO
+
+analyzeCMakeOutput :: FilePath -> IO (ParseResult (CodeModel, [ConfigurationWithTargets]))
+analyzeCMakeOutput directory = do indexFileMonad <- findAndParseIndexFile directory
+                                  codeModelMonad <- parseUsingResult indexFileMonad $ parseCodeModel directory
+                                  targetsMonad <- parseUsingResult codeModelMonad $ parseTargets directory
+                                  return $ do codeModel <- codeModelMonad
+                                              targets <- targetsMonad
+                                              return (codeModel, targets)

@@ -20,7 +20,7 @@ import Data.Text (Text)
 import qualified Data.Map.Strict as DMap
 import GHC.Generics (Generic)
 import Data.Aeson
-import Data.Aeson.Types (Parser, parse, prependFailure)
+import Data.CMakeFileApi.Types (parseSelectValue)
 
 data GeneratorDescription = GeneratorDescription {
     name :: Text,
@@ -204,13 +204,3 @@ instance FromJSON IndexFile where
         <$> v .: "cmake"
         <*> v .: "objects"
         <*> v .: "reply"
-
-parseSelectValuePair :: (Value -> Parser a) -> (Value -> Parser a) -> Value -> Parser a
-parseSelectValuePair x y v = case parse x v of
-                                  Success z -> return z
-                                  Error str -> prependFailure ("[" ++ str ++ "]" ++ " -> ") $ y v
-
-parseSelectValue :: [Value -> Parser a] -> Value -> Parser a
-parseSelectValue (x:y:xs) = foldl parseSelectValuePair (parseSelectValuePair x y) xs
-parseSelectValue [x] = x
-parseSelectValue _ = fail "No types specified"
