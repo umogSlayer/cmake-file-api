@@ -104,7 +104,8 @@ data CodeModelTarget = CodeModelTarget {
     isGeneratorProvided :: Bool,
     sources :: Array.Array SourceDescription,
     sourceGroups :: Array.Array SourceGroupDescription,
-    compileGroups :: Array.Array CompileGroupDescription
+    compileGroups :: Array.Array CompileGroupDescription,
+    backtraceGraph :: Maybe Object
 } deriving (Show, Generic)
 
 instance FromJSON CodeModelTarget where
@@ -119,6 +120,7 @@ instance FromJSON CodeModelTarget where
                 <*> v .:? "sources" .!= Array.fromListN 0 []
                 <*> v .:? "sourceGroups" .!= Array.fromListN 0 []
                 <*> v .:? "compileGroups" .!= Array.fromListN 0 []
+                <*> v .:? "backtraceGraph"
 
 instance ToJSON CodeModelTarget where
     toEncoding = genericToEncoding defaultOptions

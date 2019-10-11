@@ -29,9 +29,8 @@ instance Functor ParseResult where
 
 instance Applicative ParseResult where
     pure = Success
-    (<*>) (Success transform) (Success value) = Success (transform value)
-    (<*>) (Success _) error                   = propogateError error
-    (<*>) error _                             = propogateError error
+    (<*>) (Success transform) = fmap transform
+    (<*>) error               = propogateError
 
 instance Monad ParseResult where
     return = pure

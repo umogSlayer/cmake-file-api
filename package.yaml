@@ -28,6 +28,9 @@ dependencies:
 - bytestring
 - utf8-string
 - directory
+- vector
+- unordered-containers
+- filepath
 
 library:
   source-dirs: src

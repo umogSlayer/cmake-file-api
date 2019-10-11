@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Data.CMakeFileApi (
+    ConfigurationCMakeOutput(..),
+    CodeModelCMakeOutput(..),
     analyzeCMakeOutput
 ) where
 
@@ -8,7 +10,10 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Text as Text
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map.Strict as DMap
-import System.Directory (listDirectory)
+import qualified Data.Primitive.Array as Array
+import qualified Data.Vector as Vector
+import qualified Data.HashMap.Strict as HashMap
+import Data.Either
 
 import Data.CMakeFileApi.IndexFile
 import qualified Data.CMakeFileApi.IndexFile as IndexFile
@@ -22,7 +27,10 @@ import Control.Applicative ((<|>))
 import Control.Exception
 import Control.Monad
 
+import System.IO
 import System.IO.Error
+import System.Directory
+import System.FilePath
 
 
 parseFileContents :: Aeson.FromJSON a => BSL.ByteString -> ParseResult a
@@ -99,8 +107,8 @@ type ConfigurationWithTargets = (Configuration, [CodeModelTarget])
 parseTargets :: FilePath -> CodeModel -> IO (ParseResult [ConfigurationWithTargets])
 parseTargets folder codeModel =
     let configurationsList :: [(Configuration, [CodeModel.Target])]
-        configurationsList = [(configuration, targets configuration)
-                          | configuration <- configurations codeModel]
+        configurationsList = [(configuration, CodeModel.targets configuration)
+                          | configuration <- CodeModel.configurations codeModel]
         parseTargetFile :: CodeModel.Target -> IO (ParseResult CodeModelTarget)
         parseTargetFile = parseFile . (\v -> folder ++ "/" ++ v) . Text.unpack . CodeModel.jsonFile
         parseFileSequence :: [CodeModel.Target] -> IO [ParseResult CodeModelTarget]
@@ -112,10 +120,76 @@ parseTargets folder codeModel =
         sequencedConfigurationsIO = sequence [parseConfiguration configuration | configuration <- configurationsList]
     in sequence <$> sequencedConfigurationsIO
 
-analyzeCMakeOutput :: FilePath -> IO (ParseResult (CodeModel, [ConfigurationWithTargets]))
-analyzeCMakeOutput directory = do indexFileMonad <- findAndParseIndexFile directory
-                                  codeModelMonad <- parseUsingResult indexFileMonad $ parseCodeModel directory
-                                  targetsMonad <- parseUsingResult codeModelMonad $ parseTargets directory
-                                  return $ do codeModel <- codeModelMonad
-                                              targets <- targetsMonad
-                                              return (codeModel, targets)
+data ConfigurationCMakeOutput = ConfigurationCMakeOutput {
+    name :: Text.Text,
+    description :: CodeModel.Configuration,
+    targets :: Array.Array CodeModelTarget
+} deriving Show
+
+data CodeModelCMakeOutput = CodeModelCMakeOutput {
+    codeModel :: CodeModel,
+    configurations :: Array.Array ConfigurationCMakeOutput
+} deriving Show
+
+fromConfigurationWithTargets :: ConfigurationWithTargets -> ConfigurationCMakeOutput
+fromConfigurationWithTargets (configuration, targets) =
+    ConfigurationCMakeOutput {
+        Data.CMakeFileApi.name        = CodeModel.name configuration,
+        Data.CMakeFileApi.description = configuration,
+        Data.CMakeFileApi.targets     = Array.fromList targets
+    }
+
+analyzeCMakeOutput :: FilePath -> IO (ParseResult CodeModelCMakeOutput)
+analyzeCMakeOutput buildDirectory = let directory = buildDirectory ++ "/.cmake/api/v1/reply"
+    in do indexFileMonad <- findAndParseIndexFile directory
+          codeModelMonad <- parseUsingResult indexFileMonad $ parseCodeModel directory
+          targetsMonad <- parseUsingResult codeModelMonad $ parseTargets directory
+          return $ do codeModel <- codeModelMonad
+                      targets <- targetsMonad
+                      return CodeModelCMakeOutput {
+                          Data.CMakeFileApi.codeModel = codeModel,
+                          Data.CMakeFileApi.configurations = Array.fromList [fromConfigurationWithTargets config | config <- targets]
+                      }
+
+requestObject :: Aeson.Value
+requestObject = Aeson.Object $ HashMap.fromList [("kind", Aeson.String "codemodel"),
+                                                 ("version", Aeson.Object versionObject)]
+                where versionObject = HashMap.fromList [("major", Aeson.Number 2)]
+
+requestQuery :: Aeson.Object
+requestQuery = HashMap.fromList [("requests", Aeson.Array $ Vector.fromList [requestObject])]
+
+updateClientStatefulQueryValue :: Aeson.Value -> Aeson.Value
+updateClientStatefulQueryValue currentValue =
+    case currentValue of
+         Aeson.Object obj -> Aeson.Object $ modifyObject obj
+         _ -> Aeson.Object requestQuery
+    where modifyObject currentValue = HashMap.unionWith (const Prelude.id) currentValue requestQuery
+
+updateClientStatefulQuery :: FilePath -> IO ()
+updateClientStatefulQuery filePath =
+    do decodedObject <- withFile filePath ReadMode $ \fileHandle ->
+          do hSetBinaryMode fileHandle True
+             jsonContent <- BSL.hGetContents fileHandle
+             return $ fromRight (Aeson.object []) . Aeson.eitherDecode $ jsonContent
+       withFile filePath WriteMode $ \fileHandle ->
+          BSL.hPut fileHandle . Aeson.encode $ updateClientStatefulQueryValue decodedObject
+
+createClientStatefulQuery :: FilePath -> IO ()
+createClientStatefulQuery filePath =
+    do createDirectoryIfMissing True directory
+       withFile filePath WriteMode $ \_ -> return ()
+    where directory = dropFileName filePath
+
+putCMakeQuery :: FilePath -> IO ()
+putCMakeQuery buildDirectory = let requestDirectory = buildDirectory ++ "/.cmake/api/v1/query"
+                                   clientRequestDirectory = requestDirectory ++ "/client-hcmake"
+                                   sharedStatelessQueryFile = requestDirectory ++ "/codemodel-v2"
+                                   clientStatelessQueryFile = clientRequestDirectory ++ "/codemodel-v2"
+                                   clientStatefulQueryFile = clientRequestDirectory ++ "/query.json"
+    in do clientStatefulQueryFileExist <- doesFileExist clientStatefulQueryFile
+          when clientStatefulQueryFileExist $ updateClientStatefulQuery clientStatefulQueryFile
+          clientStatelessQueryFileExist <- doesFileExist clientStatelessQueryFile
+          sharedStatelessQueryFileExist <- doesFileExist sharedStatelessQueryFile
+          unless ((clientStatefulQueryFileExist || clientStatelessQueryFileExist) || sharedStatelessQueryFileExist)
+              $ createClientStatefulQuery clientStatefulQueryFile

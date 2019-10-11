@@ -5,5 +5,5 @@ import System.Environment
 
 main :: IO ()
 main = do args <- getArgs
-          parsedResult <- findAndParseIndexFile (head args)
+          parsedResult <- analyzeCMakeOutput (head args)
           print parsedResult
