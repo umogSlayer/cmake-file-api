@@ -26,6 +26,7 @@ import Data.CMakeFileApi.Types
 import Control.Applicative ((<|>))
 import Control.Exception
 import Control.Monad
+import Control.DeepSeq
 
 import System.IO
 import System.IO.Error
@@ -168,17 +169,18 @@ updateClientStatefulQueryValue currentValue =
 
 updateClientStatefulQuery :: FilePath -> IO ()
 updateClientStatefulQuery filePath =
-    do decodedObject <- withFile filePath ReadMode $ \fileHandle ->
-          do hSetBinaryMode fileHandle True
-             jsonContent <- BSL.hGetContents fileHandle
-             return $ fromRight (Aeson.object []) . Aeson.eitherDecode $ jsonContent
-       withFile filePath WriteMode $ \fileHandle ->
-          BSL.hPut fileHandle . Aeson.encode $ updateClientStatefulQueryValue decodedObject
+    do readFileHandle <- openFile filePath ReadMode
+       hSetBinaryMode readFileHandle True
+       jsonContent <- BSL.hGetContents readFileHandle
+       let decodedObject = fromRight (Aeson.Object (HashMap.fromList [])) . Aeson.eitherDecode $ jsonContent
+           in decodedObject `deepseq` withFile filePath WriteMode $ \fileHandle ->
+              BSL.hPut fileHandle . Aeson.encode $ updateClientStatefulQueryValue decodedObject
 
 createClientStatefulQuery :: FilePath -> IO ()
 createClientStatefulQuery filePath =
     do createDirectoryIfMissing True directory
        withFile filePath WriteMode $ \_ -> return ()
+       updateClientStatefulQuery filePath
     where directory = dropFileName filePath
 
 putCMakeQuery :: FilePath -> IO ()
@@ -191,5 +193,5 @@ putCMakeQuery buildDirectory = let requestDirectory = buildDirectory ++ "/.cmake
           when clientStatefulQueryFileExist $ updateClientStatefulQuery clientStatefulQueryFile
           clientStatelessQueryFileExist <- doesFileExist clientStatelessQueryFile
           sharedStatelessQueryFileExist <- doesFileExist sharedStatelessQueryFile
-          unless ((clientStatefulQueryFileExist || clientStatelessQueryFileExist) || sharedStatelessQueryFileExist)
+          unless (clientStatefulQueryFileExist || clientStatelessQueryFileExist || sharedStatelessQueryFileExist)
               $ createClientStatefulQuery clientStatefulQueryFile
