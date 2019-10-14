@@ -1,8 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE StrictData #-}
 
 module Data.CMakeFileApi.CodeModelTarget (
     CodeModelTarget(..),
+    CompileGroupDescription(..),
+    SourceDescription(..),
+    SourceGroupDescription(..)
 ) where
 
 import Data.Text (Text)

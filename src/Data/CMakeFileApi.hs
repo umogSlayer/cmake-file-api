@@ -3,7 +3,8 @@
 module Data.CMakeFileApi (
     ConfigurationCMakeOutput(..),
     CodeModelCMakeOutput(..),
-    analyzeCMakeOutput
+    analyzeCMakeOutput,
+    putCMakeQuery
 ) where
 
 import qualified Data.Aeson as Aeson
@@ -45,6 +46,7 @@ parseFileContents contents =
 parseFile :: Aeson.FromJSON a => FilePath -> IO (ParseResult a)
 parseFile file =
     do indexFileContents <- tryJust (guard . isDoesNotExistError) (BSL.readFile file)
+       evaluate (rnf indexFileContents)
        case indexFileContents of
             Left err -> return $ Retry $ "File " ++ file ++ " does not exist"
             Right contents -> return $ parseFileContents contents
@@ -169,9 +171,7 @@ updateClientStatefulQueryValue currentValue =
 
 updateClientStatefulQuery :: FilePath -> IO ()
 updateClientStatefulQuery filePath =
-    do readFileHandle <- openFile filePath ReadMode
-       hSetBinaryMode readFileHandle True
-       jsonContent <- BSL.hGetContents readFileHandle
+    do jsonContent <- BSL.readFile filePath
        let decodedObject = fromRight (Aeson.Object (HashMap.fromList [])) . Aeson.eitherDecode $ jsonContent
            in decodedObject `deepseq` withFile filePath WriteMode $ \fileHandle ->
               BSL.hPut fileHandle . Aeson.encode $ updateClientStatefulQueryValue decodedObject
