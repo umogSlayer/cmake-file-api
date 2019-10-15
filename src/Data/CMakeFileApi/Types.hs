@@ -30,7 +30,7 @@ instance Functor ParseResult where
 instance Applicative ParseResult where
     pure = Success
     (<*>) (Success transform) = fmap transform
-    (<*>) error               = propogateError
+    (<*>) error               = \_ -> propogateError error
 
 instance Monad ParseResult where
     return = pure
@@ -40,8 +40,8 @@ instance Monad ParseResult where
 
 parseUsingResult :: ParseResult a -> (a -> IO (ParseResult b)) -> IO (ParseResult b)
 parseUsingResult value transform = case value of
-                                        Success val          -> transform val
-                                        error                -> return $ propogateError error
+                                        Success val -> transform val
+                                        error       -> return $ propogateError error
 
 parseSelectValue :: [Aeson.Value -> Parser a] -> Aeson.Value -> Parser a
 parseSelectValue xs val = foldl (<|>) empty $ map (\fun -> fun val) xs
